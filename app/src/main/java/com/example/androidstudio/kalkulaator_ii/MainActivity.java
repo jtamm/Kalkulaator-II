@@ -4,15 +4,23 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
-import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.Toolbar;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Button;
 import android.content.BroadcastReceiver;
+
+import com.example.androidstudio.kalkulaator_ii.dao.DataSource;
+import com.example.androidstudio.kalkulaator_ii.model.DayStatistic;
+import com.example.androidstudio.kalkulaator_ii.model.Expression;
+import com.example.androidstudio.kalkulaator_ii.parcelable.DayStatisticParcelable;
+import com.example.androidstudio.kalkulaator_ii.parcelable.ExpressionParcelable;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -41,7 +49,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         calcText = (AutoResizeTextView) findViewById(R.id.calc_text);
-        bReset = (Button)findViewById(R.id.button_reset);
+        bReset = (Button) findViewById(R.id.button_reset);
         bBack = (Button) findViewById(R.id.button_back);
         bDivide = (Button) findViewById(R.id.button_divide);
         bMultiple = (Button) findViewById(R.id.button_multiple);
@@ -60,6 +68,7 @@ public class MainActivity extends AppCompatActivity {
         bEight = (Button) findViewById(R.id.button_eight);
         bNine = (Button) findViewById(R.id.button_nine);
         sendCalculatorBroadcast(null);
+
     }
 
     @Override
@@ -80,23 +89,25 @@ public class MainActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    public void calcButtonClicked(View view){
+    public void calcButtonClicked(View view) {
         Button b = (Button) view;
         sendCalculatorBroadcast(b.getText().toString());
+        sendDatabaseCalculatorBroadcast("GET_ALL_EXPRESSION", null); //GET_ALL_DAYSTATISTIC
+        sendDatabaseCalculatorBroadcast("GET_ALL_DAYSTATISTIC", null);
     }
 
-    private void sendCalculatorBroadcast (String command){
+    private void sendCalculatorBroadcast(String command) {
         Intent intent = new Intent();
         intent.setAction("com.ee.calculatorBroadcastRequest");
         intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
-        if(command != null){
+        if (command != null) {
             intent.putExtra("BUTTON_COMMAND", command);
         }
         sendOrderedBroadcast(intent, null, new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 Bundle bundle = getResultExtras(true);
-                if(bundle != null){
+                if (bundle != null) {
                     calcText.setText(bundle.getString("CALC_TEXT"));
                     bReset.setEnabled(bundle.getBoolean("BUTTON_RESET_ENABLED"));
                     bBack.setEnabled(bundle.getBoolean("BUTTON_BACK_ENABLED"));
@@ -116,8 +127,63 @@ public class MainActivity extends AppCompatActivity {
                     bSeven.setEnabled(bundle.getBoolean("BUTTON_SEVEN_ENABLED"));
                     bEight.setEnabled(bundle.getBoolean("BUTTON_EIGHT_ENABLED"));
                     bNine.setEnabled(bundle.getBoolean("BUTTON_NINE_ENABLED"));
+                    byte[] expressionParcelableData = bundle.getByteArray("EXPRESSION_DATA");
+                    if (expressionParcelableData != null) {
+                        Parcel parcel = Parcel.obtain();
+                        parcel.unmarshall(expressionParcelableData, 0, expressionParcelableData.length);
+                        parcel.setDataPosition(0);
+                        ExpressionParcelable expressionParcelable = new ExpressionParcelable(parcel);
+                        if (expressionParcelable != null) {
+                            sendDatabaseCalculatorBroadcast("PUT_EXPRESSION", expressionParcelable);
+                        }
+                    }
                 }
             }
-        },null, Activity.RESULT_OK,null,null);
+        }, null, Activity.RESULT_OK, null, null);
+    }
+
+    private void sendDatabaseCalculatorBroadcast(String command, Object obj) {
+        Intent intent = new Intent();
+        intent.setAction("com.ee.databaseCalculatorBroadcastRequest");
+        intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
+        intent.putExtra("COMMAND", command);
+        if (command.equals("PUT_EXPRESSION")) {
+            ExpressionParcelable expressionParcelable = (ExpressionParcelable) obj;
+            Parcel parcel = Parcel.obtain();
+            expressionParcelable.writeToParcel(parcel, 0);
+            intent.putExtra("DATA", parcel.marshall());
+        }
+        sendOrderedBroadcast(intent, null, new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                Bundle bundle = getResultExtras(true);
+                if (bundle != null) {
+                    String resultType = bundle.getString("RESULT_TYPE");
+                    if (resultType.equals("OK")) {
+
+                    } else if (resultType.equals("ERROR")) {
+
+                    } else {
+                        if (resultType.equals("ALL_EXPRESSION_DATA")) {
+                            int arrayCount = bundle.getInt("DATA_ARRAY_COUNT");
+                            List<ExpressionParcelable> expressionParcelables = new ArrayList<ExpressionParcelable>();
+                            for (int i = 0; i < arrayCount; i++) {
+                                Parcel parcel = Parcel.obtain();
+                                byte[] data = bundle.getByteArray("DATA_" + i);
+                                parcel.unmarshall(data, 0, data.length);
+                                parcel.setDataPosition(0);
+                                ExpressionParcelable expressionParcelable = new ExpressionParcelable(parcel);
+                                if (expressionParcelable != null) {
+                                    expressionParcelables.add(expressionParcelable);
+                                }
+                            }
+                            if (expressionParcelables != null) {
+
+                            }
+                        }
+                    }
+                }
+            }
+        }, null, Activity.RESULT_OK, null, null);
     }
 }

@@ -23,6 +23,11 @@
                 <action android:name="com.ee.calculatorBroadcastRequest"></action>
             </intent-filter>
         </receiver>
+        <receiver android:name=".DatabaseBroadcastReceiver">
+            <intent-filter>
+                <action android:name="com.ee.databaseCalculatorBroadcastRequest"></action>
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>
